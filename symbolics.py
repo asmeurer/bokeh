@@ -1,5 +1,12 @@
 from collections import defaultdict
 
+try:
+    long
+except NameError:
+    long = int
+
+numbers = (int, long, float)
+
 class CExpr(object):
     def __new__(cls, *args):
         obj = super(CExpr, cls).__new__(cls)
@@ -19,7 +26,7 @@ class CExpr(object):
 
 class CAdd(CExpr):
     def __new__(cls, *args):
-        # 2*x + y -> {x: 2, y: 1}
+        # 2*x + y + 3 -> {x: 2, y: 1, None: 3}
         cdict = defaultdict(int)
         for arg in args:
             if isinstance(arg, CVar):
@@ -28,15 +35,23 @@ class CAdd(CExpr):
                 cdict[arg.var] += arg.coeff
             elif isinstance(arg, CAdd):
                 for oarg in arg.args:
-                    coeff, var = oarg.args
-                    cdict[var] += coeff
+                    # Every arg of CAdd should be a CTerm or a number
+                    if isinstance(oarg, CTerm):
+                        coeff, var = oarg.args
+                        cdict[var] += coeff
+                    elif isinstance(oarg, numbers):
+                        cdict[None] += oarg
+            elif isinstance(arg, numbers):
+                cdict[None] += arg
             else:
                 raise TypeError("Don't know how to handle %s in CAdd" % arg)
 
         newargs = []
-        for var in sorted(cdict, key=lambda v: v.name):
+        for var in sorted([i for i in cdict if i is not None], key=str):
             coeff = cdict[var]
             newargs.append(CTerm(coeff, var))
+        if None in cdict:
+            newargs.append(cdict[None])
 
         if len(newargs) == 1:
             return newargs[0]
@@ -52,7 +67,8 @@ class CAdd(CExpr):
     __rmul__ = __mul__
 
     def __repr__(self):
-        return ' + '.join(['%s*%s' % cterm.args for cterm in self.args])
+        return ' + '.join(['%s*%s' % cterm.args if isinstance(cterm, CTerm) else
+            str(cterm) for cterm in self.args])
 
 class CVar(CExpr):
     def __init__(self, name):
