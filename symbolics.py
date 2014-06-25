@@ -95,3 +95,6 @@ class CTerm(CExpr):
         return CTerm(self.coeff*other, self.var)
 
     __rmul__ = __mul__
+
+    def __repr__(self):
+        return '%s*%s' % (self.coeff, self.var)
